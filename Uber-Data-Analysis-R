@@ -1,0 +1,136 @@
+# Importing the Essential Packages
+library(ggplot2)
+library(ggthemes)
+library(lubridate)
+library(dplyr)
+library(tidyr)
+library(DT)
+library(scales)
+
+# Creating vector of colors for the plots
+colors = c("#CC1011", "#665555", "#05a399", "#cfcaca", "#f5e840", "#0683c9", "#e075b0")
+colors # Just checking the colors look good for visualizations.
+
+# Setting the working directory
+getwd()
+# Output: "C:/Users/Harpreet/Documents/Uber-Data-Analysis"
+
+# Loading Uber trip data for each month from my local directory
+apr <- read.csv("D:/Harpreet/Programming/Data Science/R Projects/Uber Data Analysis/Dataset/uber-raw-data-apr14.csv")
+may <- read.csv("D:/Harpreet/Programming/Data Science/R Projects/Uber Data Analysis/Dataset/uber-raw-data-may14.csv")
+june <- read.csv("D:/Harpreet/Programming/Data Science/R Projects/Uber Data Analysis/Dataset/uber-raw-data-jun14.csv")
+july <- read.csv("D:/Harpreet/Programming/Data Science/R Projects/Uber Data Analysis/Dataset/uber-raw-data-jul14.csv")
+aug <- read.csv("D:/Harpreet/Programming/Data Science/R Projects/Uber Data Analysis/Dataset/uber-raw-data-aug14.csv")
+sept <- read.csv("D:/Harpreet/Programming/Data Science/R Projects/Uber Data Analysis/Dataset/uber-raw-data-sep14.csv")
+
+# Merging all the monthly data into one dataframe for analysis
+data <- rbind(apr, may, june, july, aug, sept)
+cat("The dimensions of the combined data are:", dim(data))
+# Output: The dimensions of the data are: 4534327 rows and 4 columns
+
+# Previewing the first few rows of the dataset to understand its structure
+head(data)
+# The dataset contains columns: Date.Time (as factor), Latitude, Longitude, and Base (categorical).
+# I'll convert Date.Time into a more readable format for easier manipulation.
+
+# Converting Date.Time to a POSIXct format for better date-time handling
+data$Date.Time <- as.POSIXct(data$Date.Time, format = "%m/%d/%Y %H:%M:%S")
+data$Time <- format(as.POSIXct(data$Date.Time, format = "%m/%d/%Y %H:%M:%S"), format = "%H:%M:%S")
+data$Date.Time <- ymd_hms(data$Date.Time)
+head(data)
+# Successfully converted Date.Time into a consistent and readable format.
+
+# Extracting additional time-based features: day, month, year, day of the week
+data$day <- factor(day(data$Date.Time))
+data$month <- factor(month(data$Date.Time, label = TRUE)) # Month in abbreviated format
+data$year <- factor(year(data$Date.Time))
+data$dayofweek <- factor(wday(data$Date.Time, label = TRUE)) # Weekday names
+head(data)
+# Now the dataset includes day, month, year, and day of the week as separate columns for better analysis.
+
+# Adding time components (hour, minute, second) as separate columns
+data$second <- factor(second(hms(data$Time)))
+data$minute <- factor(minute(hms(data$Time)))
+data$hour <- factor(hour(hms(data$Time)))
+
+# Previewing the enriched dataset
+head(data)
+# The dataset now includes detailed time features, making it ready for analysis.
+
+# Let's start the visualization process to explore the data trends!
+
+## Visualization: Trips by Hour
+# Aggregating trip data by hour
+hourly_data <- data %>% 
+  group_by(hour) %>% 
+  dplyr::summarize(Total = n())
+
+# Creating an interactive table to review hourly trip data
+datatable(hourly_data)
+
+# Visualizing the number of trips by hour of the day
+ggplot(hourly_data, aes(hour, Total)) + 
+  geom_bar(stat = "identity", fill = "steelblue", color = "red") + 
+  ggtitle("Trips Every Hour", subtitle = "Aggregated by the hour of the day") + 
+  theme(legend.position = "none", 
+        plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5)) + 
+  scale_y_continuous(labels = comma)
+
+# The plot reveals patterns in ride frequency throughout the day.
+
+## Visualization: Trips by Hour and Month
+# Aggregating data by month and hour
+month_hour_data <- data %>% 
+  group_by(month, hour) %>% 
+  dplyr::summarize(Total = n())
+
+# Creating a bar plot to visualize trips by hour across different months
+ggplot(month_hour_data, aes(hour, Total, fill = month)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle("Trips by Hour and Month") + 
+  scale_y_continuous(labels = comma) + 
+  scale_fill_manual(values = colors)
+
+# This plot helps us understand how ride demand fluctuates hourly within each month.
+
+## Visualization: Heatmap by Hour and Day
+# Aggregating data by day and hour
+day_hour_data <- data %>% 
+  group_by(day, hour) %>% 
+  dplyr::summarize(Total = n())
+
+# Plotting a heatmap to explore ride patterns by hour and day
+ggplot(day_hour_data, aes(day, hour, fill = Total)) + 
+  geom_tile(color = "white") + 
+  ggtitle("Heat Map by Hour and Day") + 
+  scale_fill_gradient(low = "white", high = "blue")
+
+# Heatmaps make it easy to spot peak hours and days for Uber rides.
+
+## Mapping Uber Trips in NYC
+# Setting map boundaries for NYC
+min_lat <- 40 
+max_lat <- 40.91
+min_long <- -74.15
+max_long <- -73.7004
+
+# Visualizing Uber trips as points on a map of NYC
+ggplot(data, aes(x = Lon, y = Lat)) +
+  geom_point(size = 1, color = "blue") +
+  scale_x_continuous(limits = c(min_long, max_long)) +
+  scale_y_continuous(limits = c(min_lat, max_lat)) +
+  theme_map() +
+  ggtitle("NYC Map Based on Uber Rides (April - September 2014)")
+
+# Adding Base as a color dimension to the map
+ggplot(data, aes(x = Lon, y = Lat, color = Base)) +
+  geom_point(size = 1) +
+  scale_x_continuous(limits = c(min_long, max_long)) +
+  scale_y_continuous(limits = c(min_lat, max_lat)) +
+  theme_map() +
+  ggtitle("NYC Map Based on Uber Rides (April - September 2014) by Base")
+
+# These maps give a geographical perspective on Uber rides across NYC.
+
+# End of the script. Happy analyzing!
